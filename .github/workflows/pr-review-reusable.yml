@@ -1,0 +1,214 @@
+name: PR Review (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      typescript_blocking:
+        description: "Fail the workflow if TypeScript errors are found"
+        type: boolean
+        default: true
+      eslint_blocking:
+        description: "Fail the workflow if unfixable ESLint errors remain"
+        type: boolean
+        default: true
+      claude_blocking:
+        description: "Fail the workflow if Claude finds blocking issues"
+        type: boolean
+        default: false
+      node_version:
+        description: "Node.js version to use"
+        type: string
+        default: "20"
+      working_directory:
+        description: "Directory to run checks in (relative to repo root)"
+        type: string
+        default: "."
+    secrets:
+      ANTHROPIC_API_KEY:
+        required: true
+
+jobs:
+  # ────────────────────────────────────────────────
+  # Job 1 – TypeScript
+  # ────────────────────────────────────────────────
+  typescript:
+    name: TypeScript Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node_version }}
+          cache: "npm"
+          cache-dependency-path: ${{ inputs.working_directory }}/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ${{ inputs.working_directory }}
+        run: npm ci
+
+      - name: Run TypeScript check
+        id: tsc
+        working-directory: ${{ inputs.working_directory }}
+        run: npx tsc --noEmit
+        continue-on-error: ${{ !inputs.typescript_blocking }}
+
+      - name: Fail if TypeScript errors and blocking
+        if: steps.tsc.outcome == 'failure' && inputs.typescript_blocking
+        run: |
+          echo "::error::TypeScript check failed. Fix type errors before merging."
+          exit 1
+
+      - name: Advisory notice
+        if: steps.tsc.outcome == 'failure' && !inputs.typescript_blocking
+        run: echo "::warning::TypeScript check failed (advisory only — not blocking)."
+
+  # ────────────────────────────────────────────────
+  # Job 2 – ESLint (auto-fix + commit + gate)
+  # ────────────────────────────────────────────────
+  eslint:
+    name: ESLint
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Use the head ref so we can push fixes back to the PR branch
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node_version }}
+          cache: "npm"
+          cache-dependency-path: ${{ inputs.working_directory }}/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ${{ inputs.working_directory }}
+        run: npm ci
+
+      - name: Run ESLint with auto-fix
+        working-directory: ${{ inputs.working_directory }}
+        run: |
+          npx eslint --fix --format json --output-file eslint-report.json . || true
+          # Always exits 0 here; we inspect the report ourselves
+
+      - name: Check for fixes to commit
+        id: check_fixes
+        working-directory: ${{ inputs.working_directory }}
+        run: |
+          if git diff --quiet; then
+            echo "has_fixes=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_fixes=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit auto-fixed files
+        if: steps.check_fixes.outputs.has_fixes == 'true'
+        working-directory: ${{ inputs.working_directory }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix(lint): auto-fix ESLint issues [skip ci]"
+          git push
+
+      - name: Post ESLint annotations
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        working-directory: ${{ inputs.working_directory }}
+        run: node "${{ github.workspace }}/scripts/post-eslint-annotations.js"
+
+      - name: Gate on unfixable errors
+        id: eslint_gate
+        working-directory: ${{ inputs.working_directory }}
+        run: |
+          # Count remaining errors after the fix pass
+          ERROR_COUNT=$(node -e "
+            const fs = require('fs');
+            if (!fs.existsSync('eslint-report.json')) { process.stdout.write('0'); process.exit(0); }
+            const report = JSON.parse(fs.readFileSync('eslint-report.json', 'utf8'));
+            const errors = report.reduce((acc, f) => acc + f.errorCount, 0);
+            process.stdout.write(String(errors));
+          ")
+          echo "error_count=${ERROR_COUNT}" >> "$GITHUB_OUTPUT"
+          echo "ESLint errors remaining: ${ERROR_COUNT}"
+
+      - name: Fail if ESLint errors remain and blocking
+        if: steps.eslint_gate.outputs.error_count != '0' && inputs.eslint_blocking
+        run: |
+          echo "::error::ESLint found ${{ steps.eslint_gate.outputs.error_count }} unfixable error(s). Fix them before merging."
+          exit 1
+
+      - name: Advisory notice
+        if: steps.eslint_gate.outputs.error_count != '0' && !inputs.eslint_blocking
+        run: echo "::warning::ESLint found ${{ steps.eslint_gate.outputs.error_count }} unfixable error(s) (advisory only)."
+
+  # ────────────────────────────────────────────────
+  # Job 3 – Claude AI Code Review
+  # ────────────────────────────────────────────────
+  claude-review:
+    name: Claude AI Review
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node_version }}
+
+      - name: Install review dependencies
+        run: npm install @anthropic-ai/sdk @octokit/rest
+
+      - name: Run Claude review
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BLOCKING: ${{ inputs.claude_blocking }}
+        run: node scripts/claude-review.js
+
+  # ────────────────────────────────────────────────
+  # Job 4 – PR Description Generator (non-blocking)
+  # ────────────────────────────────────────────────
+  pr-description:
+    name: Generate PR Description
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node_version }}
+
+      - name: Install dependencies
+        run: npm install @anthropic-ai/sdk @octokit/rest
+
+      - name: Generate PR description
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: node scripts/generate-pr-description.js
+        # Always exit 0 — description generation never blocks a PR
+        continue-on-error: true

@@ -1,0 +1,35 @@
+name: PR Checks
+
+on:
+  pull_request:
+    branches:
+      - main
+      - master
+
+jobs:
+  pr-review:
+    uses: YOUR_ORG/devtools/.github/workflows/pr-review-reusable.yml@main
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+    # ── Optional overrides ───────────────────────────────────────────────
+    # Uncomment and adjust any of the inputs below to customise behaviour.
+    # All inputs have sensible defaults and can be omitted entirely.
+    #
+    # with:
+    #   # Block the PR if `tsc --noEmit` finds errors (default: true)
+    #   typescript_blocking: true
+    #
+    #   # Block the PR if ESLint has unfixable errors after auto-fix (default: true)
+    #   eslint_blocking: true
+    #
+    #   # Block the PR if Claude flags critical/major issues (default: false)
+    #   # Recommended to start as false and graduate to true after a few sprints
+    #   claude_blocking: false
+    #
+    #   # Node.js version for all jobs (default: "20")
+    #   node_version: "20"
+    #
+    #   # Subdirectory to run checks in, relative to repo root (default: ".")
+    #   # Useful for monorepos where the package.json is not at the root
+    #   working_directory: "packages/my-app"
