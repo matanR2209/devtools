@@ -209,6 +209,7 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_BODY: ${{ github.event.pull_request.body }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
         run: node scripts/generate-pr-description.js
         # Always exit 0 — description generation never blocks a PR
         continue-on-error: true

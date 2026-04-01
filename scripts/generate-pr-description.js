@@ -2,8 +2,9 @@
 /**
  * generate-pr-description.js
  *
- * Generates a structured PR description from the diff using Claude.
- * Only runs when the existing PR body is empty or shorter than 50 chars.
+ * Fills in <Claude to complete> placeholders in the PR body and sets a
+ * conventional-commit PR title from the diff.
+ * Skips if all placeholders are already replaced (body has real content).
  * Always exits 0 — never blocks a PR.
  *
  * Required env vars:
@@ -12,6 +13,7 @@
  *   GITHUB_REPOSITORY   – "owner/repo"
  *   PR_NUMBER           – pull request number (integer)
  *   PR_BODY             – current PR body (passed from workflow context)
+ *   PR_TITLE            – current PR title (passed from workflow context)
  */
 
 "use strict";
@@ -26,24 +28,28 @@ const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const GITHUB_REPOSITORY = process.env.GITHUB_REPOSITORY;
 const PR_NUMBER = parseInt(process.env.PR_NUMBER, 10);
 const PR_BODY = process.env.PR_BODY ?? "";
+const PR_TITLE = process.env.PR_TITLE ?? "";
 
 const MODEL = "claude-opus-4-5";
-const DESCRIPTION_THRESHOLD = 50; // chars
 const MAX_DIFF_CHARS = 60_000;
+const PLACEHOLDER = "<Claude to complete>";
 
 // ─── System prompt ─────────────────────────────────────────────────────────
 
 const SYSTEM_PROMPT = `You are a technical writer helping engineers write clear, concise pull request descriptions.
-Given a git diff, analyse the changes and return ONLY a JSON object with three keys:
+Given a git diff, analyse the changes and return ONLY a JSON object with four keys:
 
 {
+  "title": "conventional commit PR title, e.g. feat: add user authentication",
   "what": "1-2 sentence summary of what this PR does",
   "how": "2-4 sentences on the implementation approach — what was added/changed and key decisions",
   "testing": "what tests were added, estimated coverage impact, or 'No tests added' if none found in diff"
 }
 
 Rules:
-- Be specific and technical — name the files, functions, modules, or patterns involved
+- title must follow conventional commits: feat/fix/chore/refactor/docs/test/perf/ci, colon, short description in lowercase
+- title must be specific, e.g. "feat: add WebSocket reconnection with exponential backoff" not "feat: update code"
+- Be specific and technical in all fields — name the files, functions, modules, or patterns involved
 - Do NOT use filler phrases like 'This PR...', 'In this change...', or 'The purpose of this PR'
 - Keep each section to approximately 60 words maximum
 - For 'testing': scan the diff for test files (*.test.*, *.spec.*, __tests__/) and mention them explicitly
@@ -57,7 +63,6 @@ function validateEnv() {
   );
   if (missing.length > 0) {
     console.error(`Missing required env vars: ${missing.join(", ")}`);
-    // Non-blocking — exit 0
     process.exit(0);
   }
   if (isNaN(PR_NUMBER)) {
@@ -69,6 +74,10 @@ function validateEnv() {
 function parseRepo() {
   const [owner, repo] = GITHUB_REPOSITORY.split("/");
   return { owner, repo };
+}
+
+function hasPlaceholders(body) {
+  return body.includes(PLACEHOLDER);
 }
 
 async function fetchPRDiff(octokit, owner, repo, pullNumber) {
@@ -94,7 +103,7 @@ async function callClaude(anthropic, diff) {
     messages: [
       {
         role: "user",
-        content: `Generate a PR description for this diff:\n\n\`\`\`diff\n${truncated}\n\`\`\``,
+        content: `Generate a PR title and description for this diff:\n\n\`\`\`diff\n${truncated}\n\`\`\``,
       },
     ],
   });
@@ -111,23 +120,25 @@ function parseDescriptionJSON(raw) {
   return JSON.parse(cleaned);
 }
 
-function buildPRBody(desc) {
-  return [
-    `## What`,
-    desc.what,
-    ``,
-    `## How`,
-    desc.how,
-    ``,
-    `## Testing`,
-    desc.testing,
-    ``,
-    `## Checklist`,
-    `- [ ] Self-reviewed the diff`,
-    `- [ ] No console.logs left in`,
-    `- [ ] Types are correct (no \`any\` added without justification)`,
-    `- [ ] Tests added or updated if needed`,
-  ].join("\n");
+/**
+ * Replace each <Claude to complete> placeholder in the template body
+ * with the corresponding generated content, preserving all surrounding
+ * structure (headers, HTML comments, checklist).
+ */
+function fillPlaceholders(body, desc) {
+  let remaining = body;
+  const sections = ["what", "how", "testing"];
+  for (const key of sections) {
+    remaining = remaining.replace(PLACEHOLDER, desc[key]);
+  }
+  return remaining;
+}
+
+function titleNeedsUpdate(currentTitle) {
+  if (!currentTitle || currentTitle.trim() === "") return true;
+  // If title looks like a branch name or GitHub default (no colon), replace it
+  const conventionalPrefixes = /^(feat|fix|chore|refactor|docs|test|perf|ci|build|style)(\(.+\))?:/;
+  return !conventionalPrefixes.test(currentTitle.trim());
 }
 
 // ─── Main ──────────────────────────────────────────────────────────────────
@@ -136,31 +147,27 @@ async function main() {
   validateEnv();
   const { owner, repo } = parseRepo();
 
-  // ── Gate: skip if description already exists ──────────────────────────
-  const existingBody = PR_BODY.trim();
-  if (existingBody.length > DESCRIPTION_THRESHOLD) {
-    console.log(
-      `Description exists (${existingBody.length} chars > ${DESCRIPTION_THRESHOLD}) — skipping.`
-    );
+  const bodyNeedsWork = hasPlaceholders(PR_BODY);
+  const titleNeedsWork = titleNeedsUpdate(PR_TITLE);
+
+  if (!bodyNeedsWork && !titleNeedsWork) {
+    console.log("PR body and title already filled in — skipping.");
     process.exit(0);
   }
 
   console.log(
-    `PR body is short/empty (${existingBody.length} chars). Generating description…`
+    `Generating: body=${bodyNeedsWork}, title=${titleNeedsWork}…`
   );
 
   const anthropic = new Anthropic.default({ apiKey: ANTHROPIC_API_KEY });
   const octokit = new Octokit({ auth: GITHUB_TOKEN });
 
-  // ── Fetch diff ────────────────────────────────────────────────────────
   const diff = await fetchPRDiff(octokit, owner, repo, PR_NUMBER);
-
   if (!diff || diff.trim().length === 0) {
     console.log("Empty diff — nothing to describe.");
     process.exit(0);
   }
 
-  // ── Call Claude ───────────────────────────────────────────────────────
   console.log(`Diff size: ${diff.length} chars. Calling Claude…`);
   const rawResponse = await callClaude(anthropic, diff);
 
@@ -170,36 +177,38 @@ async function main() {
   } catch (err) {
     console.error(`Failed to parse Claude response as JSON: ${err.message}`);
     console.error("Raw response:", rawResponse);
-    // Non-blocking
     process.exit(0);
   }
 
-  if (!desc.what || !desc.how || !desc.testing) {
-    console.error("Claude response missing required fields (what/how/testing).");
+  if (!desc.what || !desc.how || !desc.testing || !desc.title) {
+    console.error("Claude response missing required fields.");
     process.exit(0);
   }
 
-  // ── Build and update PR body ──────────────────────────────────────────
-  const newBody = buildPRBody(desc);
+  // ── Fill placeholders in the existing template body ───────────────────
+  const newBody = bodyNeedsWork ? fillPlaceholders(PR_BODY, desc) : PR_BODY;
 
+  // ── Update PR title and body ──────────────────────────────────────────
   await octokit.rest.pulls.update({
     owner,
     repo,
     pull_number: PR_NUMBER,
-    body: newBody,
+    ...(bodyNeedsWork ? { body: newBody } : {}),
+    ...(titleNeedsWork ? { title: desc.title } : {}),
   });
 
-  console.log("PR description updated successfully.");
+  console.log(`PR updated — title: "${desc.title}"`);
 
-  // ── Notify the author ─────────────────────────────────────────────────
   await octokit.rest.issues.createComment({
     owner,
     repo,
     issue_number: PR_NUMBER,
     body: [
-      `🤖 I generated a PR description from the diff. Please review and adjust if needed.`,
+      `🤖 I filled in the PR description and title from the diff. Please review and adjust if needed.`,
       ``,
-      `*(Auto-generated by \`generate-pr-description.js\` because the PR body was empty or very short.)*`,
+      `**Title set to:** \`${desc.title}\``,
+      ``,
+      `*(Auto-generated by \`generate-pr-description.js\`)*`,
     ].join("\n"),
   });
 
@@ -208,6 +217,5 @@ async function main() {
 
 main().catch((err) => {
   console.error("Unexpected error:", err);
-  // Always non-blocking
   process.exit(0);
 });

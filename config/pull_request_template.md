@@ -1,15 +1,16 @@
 ## What
 
+<Claude to complete>
 <!-- 1-2 sentences: what does this PR do? -->
 
 ## How
 
+<Claude to complete>
 <!-- 2-4 sentences: implementation approach, key decisions, patterns used -->
 
 ## Testing
 
-<!-- What tests were added or updated? Estimated coverage impact? -->
-<!-- If no tests: explain why they are not needed -->
+<Claude to complete>
 
 ## Checklist
 
