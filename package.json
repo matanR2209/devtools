@@ -1,0 +1,10 @@
+{
+  "name": "devtools-scripts",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CI/CD scripts for the reusable PR review workflow",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.37.0",
+    "@octokit/rest": "^21.0.0"
+  }
+}

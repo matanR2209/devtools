@@ -97,9 +97,13 @@ jobs:
           cache: "npm"
           cache-dependency-path: ${{ inputs.working_directory }}/package-lock.json
 
-      - name: Install dependencies
+      - name: Install PR branch dependencies
         working-directory: ${{ inputs.working_directory }}
         run: npm ci
+
+      - name: Install devtools script dependencies
+        working-directory: .devtools
+        run: npm install
 
       - name: Run ESLint with auto-fix
         working-directory: ${{ inputs.working_directory }}
@@ -183,8 +187,9 @@ jobs:
         with:
           node-version: ${{ inputs.node_version }}
 
-      - name: Install review dependencies
-        run: npm install @anthropic-ai/sdk @octokit/rest
+      - name: Install devtools script dependencies
+        working-directory: .devtools
+        run: npm install
 
       - name: Run Claude review
         env:
@@ -217,8 +222,9 @@ jobs:
         with:
           node-version: ${{ inputs.node_version }}
 
-      - name: Install dependencies
-        run: npm install @anthropic-ai/sdk @octokit/rest
+      - name: Install devtools script dependencies
+        working-directory: .devtools
+        run: npm install
 
       - name: Generate PR description
         env:
