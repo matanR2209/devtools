@@ -9,6 +9,9 @@ on:
 jobs:
   pr-review:
     uses: YOUR_ORG/devtools/.github/workflows/pr-review-reusable.yml@main
+    permissions:
+      contents: write
+      pull-requests: write
     secrets:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 

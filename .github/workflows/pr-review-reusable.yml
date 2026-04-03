@@ -75,11 +75,19 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - name: Checkout
+      - name: Checkout PR branch
         uses: actions/checkout@v4
         with:
           # Use the head ref so we can push fixes back to the PR branch
           ref: ${{ github.head_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout devtools (scripts)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/devtools
+          ref: main
+          path: .devtools
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node.js
@@ -126,7 +134,7 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         working-directory: ${{ inputs.working_directory }}
-        run: node "${{ github.workspace }}/scripts/post-eslint-annotations.js"
+        run: node $GITHUB_WORKSPACE/.devtools/scripts/post-eslint-annotations.js
 
       - name: Gate on unfixable errors
         id: eslint_gate
@@ -162,8 +170,13 @@ jobs:
     permissions:
       pull-requests: write
     steps:
-      - name: Checkout
+      - name: Checkout devtools (scripts)
         uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/devtools
+          ref: main
+          path: .devtools
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -180,7 +193,7 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           BLOCKING: ${{ inputs.claude_blocking }}
-        run: node scripts/claude-review.js
+        run: node .devtools/scripts/claude-review.js
 
   # ────────────────────────────────────────────────
   # Job 4 – PR Description Generator (non-blocking)
@@ -191,8 +204,13 @@ jobs:
     permissions:
       pull-requests: write
     steps:
-      - name: Checkout
+      - name: Checkout devtools (scripts)
         uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/devtools
+          ref: main
+          path: .devtools
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -210,6 +228,6 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_BODY: ${{ github.event.pull_request.body }}
           PR_TITLE: ${{ github.event.pull_request.title }}
-        run: node scripts/generate-pr-description.js
+        run: node .devtools/scripts/generate-pr-description.js
         # Always exit 0 — description generation never blocks a PR
         continue-on-error: true
