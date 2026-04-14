@@ -335,7 +335,15 @@ async function main() {
   }
 }
 
+function isPermissionsError(err) {
+  return err?.status === 403 || (err?.message ?? "").includes("Resource not accessible by integration");
+}
+
 main().catch((err) => {
+  if (!BLOCKING && isPermissionsError(err)) {
+    console.warn("Skipping Claude review: insufficient GITHUB_TOKEN permissions (non-blocking)");
+    process.exit(0);
+  }
   console.error("Unexpected error:", err);
   process.exit(1);
 });
