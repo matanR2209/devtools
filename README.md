@@ -14,6 +14,8 @@ A reusable GitHub Actions workflow that adds automated TypeScript checking, ESLi
 | `scripts/generate-pr-description.js` | Generates What/How/Testing description from diff |
 | `config/pull_request_template.md` | Standard PR template to copy into target repos |
 | `config/example-caller-workflow.yml` | Copy-paste starter for new repos |
+| `templates/implementation-plan.html` | Progress-tracking page every project must have in `docs/` — see step 6 |
+| `scripts/init-project.sh` | One-shot initializer for a new repo: `.claude/`, `BACKLOG.md`, `CLAUDE.md`, the PR workflow and the implementation plan |
 
 ---
 
@@ -73,6 +75,12 @@ In each target repo → **Settings → Branches → Add rule** for `main`/`maste
   - Add `Claude AI Review` *(optional — start advisory)*
 - ✅ Require branches to be up to date before merging
 - ✅ Require pull request reviews before merging
+
+### 6. Add the implementation plan
+
+Every project tracks its progress in `docs/implementation-plan.html` — Matan opens it directly instead of asking where things stand. `scripts/init-project.sh` creates it for a new repo from `templates/implementation-plan.html` (substituting `{{PROJECT_NAME}}` and `{{PREFIX}}`); for an existing repo, copy the template by hand.
+
+The rules live in a comment at the top of the template and in `~/.claude/CLAUDE.md` (New Project Initialization, Step 5). In short: update it in the same batch of work as closing any ticket, mark a finished phase with `class="phase done"` (light green background), and keep the **You are here** marker directly after the last finished phase. A project spanning several repos keeps one unified plan, byte-identical in each.
 
 ---
 
