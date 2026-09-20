@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{PROJECT_NAME}} — implementation plan</title>
+<style>
+:root{--bg:#f5f6fa;--surface:#fff;--surface-hover:#f0f1f7;--border:#e3e5ef;--text:#1a1d2e;--secondary:#5b5f7a;--muted:#9396ae}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Inter",system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.5;padding:2rem 1rem}
+.container{max-width:1100px;margin:0 auto}
+header.hero{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:2rem;margin-bottom:1.5rem;box-shadow:0 2px 8px rgba(26,29,46,.04)}
+h1{font-size:2rem;font-weight:800;letter-spacing:-0.03em;margin-bottom:.25rem}
+.subline{color:var(--secondary);font-size:.95rem;margin-bottom:1.5rem}
+.meta-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem;margin-top:1rem}
+.meta-card{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:.75rem 1rem}
+.meta-card .label{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+.meta-card .value{font-size:1.25rem;font-weight:700;color:var(--text);margin-top:.2rem}
+.phase{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:1.5rem;margin-bottom:1.5rem;box-shadow:0 2px 8px rgba(26,29,46,.04)}
+.phase.current{border:2px solid #7c5cdb;box-shadow:0 0 0 4px #f3effe,0 8px 24px rgba(124,92,219,.18);position:relative}
+.current-tag{position:absolute;top:-.7rem;left:1.25rem;background:#7c5cdb;color:#fff;font-size:.68rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:.2rem .6rem;border-radius:999px}
+.phase-header{display:flex;align-items:center;gap:.75rem;margin-bottom:1.25rem}
+.phase-pill{display:inline-block;width:.75rem;height:.75rem;border-radius:4px;flex-shrink:0}
+.phase-name{font-size:1.35rem;font-weight:700;letter-spacing:-.02em}
+.phase-subtitle{color:var(--secondary);font-size:.95rem}
+details.phase-section{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:0;margin-bottom:.75rem;overflow:hidden}
+details.phase-section[open]{background:var(--surface)}
+details.phase-section > summary{list-style:none;outline:none;display:flex;align-items:center;justify-content:space-between;padding:.85rem 1.15rem;cursor:pointer;font-weight:600;font-size:.95rem;color:var(--text);user-select:none}
+details.phase-section > summary::-webkit-details-marker{display:none}
+.section-summary-left{display:flex;align-items:center;gap:.6rem}
+.section-chev{width:.6rem;height:.6rem;border-right:2px solid var(--secondary);border-bottom:2px solid var(--secondary);transform:rotate(-45deg);transition:transform .2s;display:inline-block;margin-right:.2rem}
+details.phase-section[open] > summary .section-chev{transform:rotate(45deg)}
+.section-count{background:var(--border);color:var(--secondary);font-size:.7rem;font-weight:700;padding:.1rem .5rem;border-radius:999px;letter-spacing:.04em}
+details.phase-section[open] > summary{border-bottom:1px solid var(--border)}
+.section-body{padding:1.15rem}
+.phase-recap{font-size:.92rem;line-height:1.65}
+.phase-recap code,.tech-card code{background:var(--bg)}
+.tech-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:.75rem}
+.tech-card{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:.85rem 1rem}
+details.phase-section[open] .tech-card{background:var(--surface-hover)}
+.tech-name{font-weight:700;font-size:.95rem;color:var(--text);margin-bottom:.35rem}
+.tech-card p{font-size:.82rem;color:var(--secondary);line-height:1.55;margin:.25rem 0}
+.tech-card p.what{color:var(--text)}
+.tech-card .lbl{font-size:.65rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700;margin-right:.4rem}
+.ticket-list{display:flex;flex-direction:column;gap:.5rem}
+details.ticket{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.7rem .9rem;cursor:pointer}
+details.phase-section[open] details.ticket{background:var(--bg)}
+details.ticket[open]{background:var(--surface-hover) !important}
+details.ticket > summary{list-style:none;outline:none;display:flex;align-items:center;gap:.75rem;cursor:pointer}
+details.ticket > summary::-webkit-details-marker{display:none}
+.ticket-id{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:.8rem;font-weight:700;color:var(--text);min-width:65px}
+.ticket-title{flex:1;font-weight:500;color:var(--text);font-size:.9rem}
+.ticket-badges{display:flex;gap:.4rem;flex-shrink:0}
+.badge{font-size:.68rem;padding:.1rem .5rem;border-radius:999px;font-weight:600;text-transform:lowercase}
+.badge.be-dev{background:#fef4ea;color:#f0954a}.badge.fe-dev{background:#e8f8f4;color:#33b899}
+.badge.product{background:#eef3fd;color:#5b8dee}.badge.designer{background:#f3effe;color:#9b74e8}
+.badge.critical{background:#fde6e4;color:#c8362f}.badge.high{background:#fef4ea;color:#d97706}
+.badge.medium{background:#eef3fd;color:#5b8dee}.badge.low{background:#f0f1f7;color:#9396ae}
+.badge.effort{background:#e8f8f4;color:#2eb87a}
+.badge.done{background:#e8f8f4;color:#2eb87a}
+.badge.inprogress{background:#fff7e6;color:#d97706}
+.badge.pending{background:#f0f1f7;color:#5b5f7a}
+.badge.todo{background:#f0f1f7;color:#5b5f7a}
+.ticket-body{margin-top:.7rem;padding-top:.7rem;border-top:1px solid var(--border);display:grid;gap:.85rem}
+.ticket-section h4{font-size:.66rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700;margin-bottom:.3rem}
+.ticket-section p{color:var(--text);font-size:.88rem}
+.ticket-section ul{padding-left:1.25rem}
+.ticket-section li{margin:.12rem 0;font-size:.86rem;color:var(--text)}
+code{background:var(--bg);padding:.1rem .35rem;border-radius:4px;font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:.85em;color:#5b5f7a}
+.he{direction:rtl;unicode-bidi:isolate}
+.nav{position:sticky;top:1rem;z-index:10;background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:.5rem 1rem;margin-bottom:1.5rem;display:flex;gap:.4rem;overflow-x:auto}
+.nav a{color:var(--secondary);text-decoration:none;font-size:.85rem;padding:.3rem .7rem;border-radius:999px;white-space:nowrap;font-weight:500}
+.nav a:hover{background:var(--surface-hover);color:var(--text)}
+.footer{color:var(--muted);font-size:.85rem;text-align:center;margin-top:2rem}
+.resolved{background:#e8f8f4;border-left:4px solid #2eb87a;border-radius:8px;padding:1rem 1.25rem;margin:.5rem 0}
+.resolved strong{display:block;color:#2eb87a;margin-bottom:.25rem}
+.controls{display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap}
+.btn{background:var(--surface);border:1px solid var(--border);color:var(--secondary);font-size:.8rem;padding:.4rem .8rem;border-radius:8px;cursor:pointer;font-family:inherit;font-weight:500}
+.btn:hover{background:var(--surface-hover);color:var(--text)}
+
+.blocker{background:#fde6e4;border-left:4px solid #c8362f;border-radius:8px;padding:1rem 1.25rem;margin:.5rem 0}
+.blocker strong{display:block;color:#c8362f;margin-bottom:.25rem}
+.badge.blocked{background:#fde6e4;color:#c8362f}
+
+.repo-tag{display:inline-block;font-size:.62rem;font-weight:800;letter-spacing:.06em;padding:.05rem .4rem;border-radius:5px;margin-right:.4rem;vertical-align:middle}
+
+.phase-name .repo-tag{background:#eef3fd;color:#3563c9}
+#adp-blockers .repo-tag,#adp-phase-0 .repo-tag,#adp-phase-1 .repo-tag,#adp-phase-2 .repo-tag,#adp-phase-2b .repo-tag,#adp-phase-3 .repo-tag,#adp-phase-4 .repo-tag,#adp-phase-5 .repo-tag,#adp-phase-6 .repo-tag,#adp-phase-7 .repo-tag,#adp-phase-8 .repo-tag,#adp-phase-9 .repo-tag,#adp-suggestions .repo-tag{background:#eef3fd;color:#3563c9}
+#dst-phase-1 .repo-tag,#dst-phase-2 .repo-tag,#dst-phase-3 .repo-tag,#dst-phase-4 .repo-tag,#dst-phase-5 .repo-tag,#dst-phase-6 .repo-tag,#dst-deferred .repo-tag,#dst-mockup .repo-tag{background:#f3effe;color:#7c5cdb}
+#adp-phase-10 .repo-tag,#adp-phase-11 .repo-tag{background:#eef3fd;color:#3563c9}
+#dst-phase-7 .repo-tag{background:#f3effe;color:#7c5cdb}
+
+.tabbar{position:sticky;top:0;left:0;right:0;z-index:50;background:var(--surface);border-bottom:1px solid var(--border);margin:-2rem -1rem 1.5rem;padding:0 1rem;box-shadow:0 1px 0 rgba(26,29,46,.03)}
+.tabbar-inner{max-width:1200px;margin:0 auto;display:flex;gap:.5rem;overflow-x:auto}
+.tabbar-tab{padding:1rem 1.1rem;color:var(--secondary);font-weight:600;font-size:.92rem;text-decoration:none;border-bottom:3px solid transparent;white-space:nowrap}
+.tabbar-tab:hover{color:var(--text)}
+.tabbar-tab.active{color:var(--text);border-bottom-color:var(--text)}
+.phase.done{background:#eaf7f0;border-color:#b9e6cf}
+</style>
+</head><body>
+<!--
+  IMPLEMENTATION PLAN — RULES (from ~/.claude/CLAUDE.md, New Project Initialization)
+
+  Matan tracks progress by opening this file directly. It must ALWAYS be current.
+
+  1. Update it in the same batch of work as closing any ticket — not as an optional extra.
+     Add the ticket with an Outcome paragraph and a link to the PR that shipped it, and
+     flip its badge to <span class="badge done">done</span>.
+  2. A phase whose tickets are all done gets class="phase done" — that is the light green
+     background. Also add the done badge to its phase-name.
+  3. The "You are here" marker (<section class="phase current" id="you-are-here">) must
+     ALWAYS sit directly after the last completed phase and before the first unstarted one.
+     Move it every time the boundary moves. Its prose ("everything above is done, nothing
+     below has started") has to stay true.
+  4. Keep the meta cards (ticket count, currently in progress, next options) and the nav in sync.
+  5. If this project spans several repos, keep ONE unified plan, byte-identical in every repo's
+     docs/implementation-plan.html (diff them after each update).
+
+  Placeholders {{PROJECT_NAME}} and {{PREFIX}} are substituted by devtools/scripts/init-project.sh.
+-->
+<div class="container">
+<header class="hero">
+<h1>{{PROJECT_NAME}} &mdash; implementation plan</h1>
+<p class="subline">The single source of truth for where this project stands. Phases run top to bottom in the order they happen; each ticket links to the PR that shipped it.</p>
+<div class="meta-grid">
+<div class="meta-card"><div class="label">{{PREFIX}} tickets</div><div class="value">1</div></div>
+<div class="meta-card"><div class="label">Currently in progress</div><div class="value" style="font-size:.95rem">Phase 1 &mdash; first feature</div></div>
+<div class="meta-card"><div class="label">Next options</div><div class="value" style="font-size:.95rem">Decide after Phase 1</div></div>
+</div>
+</header>
+
+<nav class="nav"><a href="#phase-0">Phase 0: Setup</a><a href="#you-are-here" style="font-weight:800;color:#7c5cdb">&#9679; You are here</a><a href="#phase-1">Phase 1: First feature</a></nav>
+
+<section class="phase done" id="phase-0">
+<div class="phase-header"><span class="phase-pill" style="background:#3563c9"></span>
+<div><div class="phase-name">Phase 0 &mdash; Project setup <span class="badge done">done</span></div>
+<div class="phase-subtitle">Repo, devtools workflow, .claude/ folder, this plan.</div></div></div>
+<details class="phase-section" open><summary>
+<span class="section-summary-left"><span class="section-chev"></span>Sub-tickets</span>
+<span class="section-count">1</span>
+</summary><div class="section-body"><div class="ticket-list">
+<details class="ticket"><summary>
+<span class="ticket-id">{{PREFIX}}-1</span><span class="ticket-title">Initialize project structure and agent system</span>
+<span class="ticket-badges"><span class="badge product">product</span><span class="badge high">high</span><span class="badge chore">chore</span><span class="badge done">done</span></span></summary>
+<div class="ticket-body"><div class="ticket-section"><h4>Outcome</h4><p>First commit: <code>chore: initialize project structure and agent system</code>. Replace this with the PR link once it exists.</p></div></div></details>
+</div></div></details>
+</section>
+
+<section class="phase current" id="you-are-here">
+<span class="current-tag">You are here</span>
+<div class="phase-header"><span class="phase-pill" style="background:#7c5cdb"></span>
+<div><div class="phase-name">Deciding what&rsquo;s next</div>
+<div class="phase-subtitle">Every phase above this line is done. Nothing below has started. Matan picks one:</div></div></div>
+<ul style="padding-left:1.25rem;font-size:.9rem;line-height:1.8">
+<li><strong>Phase 1</strong> &mdash; describe the first feature here.</li>
+</ul>
+</section>
+
+<section class="phase" id="phase-1">
+<div class="phase-header"><span class="phase-pill" style="background:#3563c9"></span>
+<div><div class="phase-name">Phase 1 &mdash; First feature</div>
+<div class="phase-subtitle">What this phase delivers and why it comes first.</div></div></div>
+<details class="phase-section" open><summary>
+<span class="section-summary-left"><span class="section-chev"></span>Sub-tickets</span>
+<span class="section-count">1</span>
+</summary><div class="section-body"><div class="ticket-list">
+<details class="ticket"><summary>
+<span class="ticket-id">{{PREFIX}}-2</span><span class="ticket-title">Short imperative ticket title</span>
+<span class="ticket-badges"><span class="badge fe-dev">fe-dev</span><span class="badge high">high</span><span class="badge feature">feature</span><span class="badge todo">todo</span></span></summary>
+<div class="ticket-body"><div class="ticket-section"><h4>Description</h4><p>What needs to be done and why. 2&ndash;4 sentences.</p></div></div></details>
+</div></div></details>
+</section>
+
+</div></body></html>
