@@ -27,6 +27,14 @@ on:
         description: "Package manager of the target repo: npm or pnpm (pnpm version read from the packageManager field in package.json)"
         type: string
         default: "npm"
+      run_tests:
+        description: "Also run the repo's test suite (npm test / pnpm test) against a Postgres 16 service"
+        type: boolean
+        default: false
+      test_database_url:
+        description: "Exported as DATABASE_URL and TEST_DATABASE_URL to the test run; the Postgres service listens on localhost:5432 with user/password postgres"
+        type: string
+        default: "postgres://postgres:postgres@localhost:5432/postgres"
     secrets:
       ANTHROPIC_API_KEY:
         required: true
@@ -249,3 +257,51 @@ jobs:
         run: node .devtools/scripts/generate-pr-description.js
         # Always exit 0 — description generation never blocks a PR
         continue-on-error: true
+
+  # ────────────────────────────────────────────────
+  # Job 5 – Tests (opt-in, with a Postgres 16 service)
+  # ────────────────────────────────────────────────
+  tests:
+    name: Tests
+    if: ${{ inputs.run_tests }}
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        if: inputs.package_manager == 'pnpm'
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node_version }}
+          cache: ${{ inputs.package_manager }}
+          cache-dependency-path: ${{ inputs.working_directory }}/${{ inputs.package_manager == 'pnpm' && 'pnpm-lock.yaml' || 'package-lock.json' }}
+
+      - name: Install dependencies
+        working-directory: ${{ inputs.working_directory }}
+        run: ${{ inputs.package_manager == 'pnpm' && 'pnpm install --frozen-lockfile' || 'npm ci' }}
+
+      - name: Run tests
+        working-directory: ${{ inputs.working_directory }}
+        env:
+          DATABASE_URL: ${{ inputs.test_database_url }}
+          TEST_DATABASE_URL: ${{ inputs.test_database_url }}
+          CI: "true"
+        run: ${{ inputs.package_manager == 'pnpm' && 'pnpm test' || 'npm test' }}
