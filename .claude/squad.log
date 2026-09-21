@@ -1,0 +1,7 @@
+[2026-09-21T11:39:08Z] [be-dev] [DVT-6] [DONE]
+Task: Fixed broken Generate PR Description job — restored contents:read to claude-review and pr-description job permissions blocks, added non-blocking placeholder-verification step, stopped error-swallowing in generate-pr-description.js.
+PR: #6 DVT-6_pr-description-permissions — https://github.com/matanR2209/devtools/pull/6
+Triggered by: manual
+Agents involved: —
+Time taken: 20m
+Summary: contents:read was implicitly revoked by the permissions: block on both jobs, causing 403s on checkout/diff-read; pr-description also silently passed on failure. Both fixed; devtools has no CI so verified by hand (YAML parse + manual diff review).

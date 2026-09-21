@@ -216,6 +216,8 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("Unexpected error:", err);
+  console.error(
+    `PR description generation failed — status: ${err.status ?? "n/a"}, message: ${err.message}`
+  );
   process.exit(0);
 });
