@@ -10,6 +10,13 @@ if [ -f ".claude/squad.log" ]; then
   exit 0
 fi
 
+# Never run unattended. A hook passes its JSON payload on stdin, which the reads
+# below would swallow as the project name.
+if [ ! -t 0 ]; then
+  echo "init-project.sh needs an interactive terminal — skipping"
+  exit 0
+fi
+
 echo ""
 echo "DevSquad — Project Initializer"
 echo "──────────────────────────────"
@@ -18,6 +25,15 @@ echo ""
 read "PROJECT_NAME?Project name (e.g. IdeaPA): "
 read "PREFIX?Ticket prefix (e.g. IDP): "
 read "DESCRIPTION?One-line project description: "
+
+if [ -z "$PROJECT_NAME" ] || [ -z "$PREFIX" ]; then
+  echo "Project name and ticket prefix are both required — aborting"
+  exit 1
+fi
+
+case "$PROJECT_NAME$PREFIX" in
+  *'{'*|*'"'*) echo "Project name or prefix looks like machine input — aborting"; exit 1 ;;
+esac
 
 echo ""
 echo "Initializing $PROJECT_NAME ($PREFIX)..."
@@ -50,6 +66,9 @@ else
   echo "  ⚠ implementation-plan.html template not found in devtools — skipping"
 fi
 
+if [ -f BACKLOG.md ]; then
+  echo "  ⚠ BACKLOG.md already exists — leaving it untouched"
+else
 cat > BACKLOG.md << BACKLOG
 # Backlog — $PROJECT_NAME
 Prefix: $PREFIX
@@ -60,7 +79,11 @@ _no tickets yet_
 ## Done
 _nothing merged yet_
 BACKLOG
+fi
 
+if [ -f CLAUDE.md ]; then
+  echo "  ⚠ CLAUDE.md already exists — leaving it untouched"
+else
 cat > CLAUDE.md << CLAUDEMD
 # $PROJECT_NAME — Project Context
 
@@ -84,6 +107,7 @@ outcome + PR link and flip its badge; give a phase whose tickets are all done
 \`class="phase done"\` (light green); keep the "You are here" marker directly after
 the last finished phase. See the rules comment at the top of the file.
 CLAUDEMD
+fi
 
 GLOBAL_CLAUDE=~/.claude/CLAUDE.md
 if [ -f "$GLOBAL_CLAUDE" ] && ! grep -q "$PROJECT_NAME" "$GLOBAL_CLAUDE"; then
