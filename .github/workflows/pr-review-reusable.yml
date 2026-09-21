@@ -192,6 +192,7 @@ jobs:
     name: Claude AI Review
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       pull-requests: write
     steps:
       - name: Checkout devtools (scripts)
@@ -227,6 +228,7 @@ jobs:
     name: Generate PR Description
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       pull-requests: write
     steps:
       - name: Checkout devtools (scripts)
@@ -247,6 +249,7 @@ jobs:
         run: npm install
 
       - name: Generate PR description
+        id: generate
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -257,6 +260,22 @@ jobs:
         run: node .devtools/scripts/generate-pr-description.js
         # Always exit 0 — description generation never blocks a PR
         continue-on-error: true
+
+      - name: Warn if generation failed
+        if: steps.generate.outcome == 'failure'
+        run: echo "::warning::PR description generation step failed — see the 'Generate PR description' step log for details. The PR body may not have been updated."
+
+      - name: Verify PR body was written
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          BODY=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq .body)
+          if echo "$BODY" | grep -qF '<Claude to complete>'; then
+            echo "::error::PR description generation failed — the PR body still contains the '<Claude to complete>' placeholder. Fill it in manually before relying on it."
+          fi
+          exit 0
 
   # ────────────────────────────────────────────────
   # Job 5 – Tests (opt-in, with a Postgres 16 service)
