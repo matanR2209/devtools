@@ -212,7 +212,30 @@ jobs:
         working-directory: .devtools
         run: npm install
 
+      - name: Determine review scope
+        id: scope
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          FILES=$(gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" --paginate --jq '.[].filename')
+          CODE_CHANGED=false
+          while IFS= read -r file; do
+            [ -z "$file" ] && continue
+            case "$file" in
+              *.md|docs/**|design/**|.claude/**|LICENSE|*.txt)
+                ;;
+              *)
+                CODE_CHANGED=true
+                ;;
+            esac
+          done <<< "$FILES"
+          echo "code_changed=${CODE_CHANGED}" >> "$GITHUB_OUTPUT"
+          if [ "$CODE_CHANGED" = "false" ]; then
+            echo "Docs-only PR, skipping Claude review"
+          fi
+
       - name: Run Claude review
+        if: steps.scope.outputs.code_changed == 'true'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
