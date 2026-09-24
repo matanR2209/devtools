@@ -30,7 +30,7 @@ const PR_NUMBER = parseInt(process.env.PR_NUMBER, 10);
 const PR_BODY = process.env.PR_BODY ?? "";
 const PR_TITLE = process.env.PR_TITLE ?? "";
 
-const MODEL = "claude-opus-4-5";
+const MODEL = "claude-haiku-4-5-20251001";
 const MAX_DIFF_CHARS = 60_000;
 const PLACEHOLDER = "<Claude to complete>";
 

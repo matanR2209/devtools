@@ -5,3 +5,11 @@ Triggered by: manual
 Agents involved: —
 Time taken: 20m
 Summary: contents:read was implicitly revoked by the permissions: block on both jobs, causing 403s on checkout/diff-read; pr-description also silently passed on failure. Both fixed; devtools has no CI so verified by hand (YAML parse + manual diff review).
+
+[2026-09-24T09:11:52Z] [be-dev] [DVT-7] [DONE]
+Task: Made Claude PR review cheaper — switched claude-review.js and generate-pr-description.js MODEL to claude-haiku-4-5-20251001, and added a scope-detection step in pr-review-reusable.yml (claude-review job) that skips the Claude review step entirely on docs-only PRs (*.md, docs/**, design/**, .claude/**, LICENSE, *.txt).
+PR: #TBD DVT-7_cheaper-review — https://github.com/matanR2209/devtools/pull/TBD
+Triggered by: manual
+Agents involved: —
+Time taken: 15m
+Summary: Review cost cut two ways — cheaper model, and skipped outright for docs-only changes. devtools has no CI so verified by hand: YAML parse, node --check on both scripts, and local bash classification test (README.md+docs/a.html -> false, README.md+src/a.ts -> true).

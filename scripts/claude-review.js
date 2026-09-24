@@ -26,7 +26,7 @@ const GITHUB_REPOSITORY = process.env.GITHUB_REPOSITORY;
 const PR_NUMBER = parseInt(process.env.PR_NUMBER, 10);
 const BLOCKING = process.env.BLOCKING === "true";
 
-const MODEL = "claude-opus-4-5";
+const MODEL = "claude-haiku-4-5-20251001";
 const MAX_DIFF_CHARS = 80_000; // truncate huge diffs to stay within context
 
 const SEVERITY_EMOJI = {
