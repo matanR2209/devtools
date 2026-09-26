@@ -13,3 +13,11 @@ Triggered by: manual
 Agents involved: —
 Time taken: 15m
 Summary: Review cost cut two ways — cheaper model, and skipped outright for docs-only changes. devtools has no CI so verified by hand: YAML parse, node --check on both scripts, and local bash classification test (README.md+docs/a.html -> false, README.md+src/a.ts -> true).
+
+[2026-09-26T09:22:08Z] [be-dev] [DVT-8] [DONE]
+Task: Merged typescript, eslint, claude-review and pr-description jobs in pr-review-reusable.yml into one `review` job (display name "PR Review") to cut Actions minutes — single checkout/setup-node/install/.devtools-checkout/.devtools-install shared across all four checks. Moved the docs-only `scope` step to run first so TypeScript, ESLint and Claude review skip on docs-only PRs (PR description still always runs). Added if:always() to steps after the TypeScript/ESLint fail-fast steps so later checks still execute post-failure, plus a final `Gate` step (if:always()) that reuses steps.tsc.outcome and steps.eslint_gate.outputs.error_count to enforce the same blocking semantics as before. Added top-level concurrency group. Union'd permissions to contents:write + pull-requests:write. Updated README.md "What each job/check does" section and monorepo note to reflect the single-job structure.
+PR: #8 DVT-8_single-review-job — https://github.com/matanR2209/devtools/pull/8
+Triggered by: manual
+Agents involved: —
+Time taken: 25m
+Summary: devtools has no CI so verified by hand — python3 yaml.safe_load parse, actionlint (via brew, fixed one pre-existing SC2086 unquoted-var warning it surfaced), and a python script dump of the merged job's step names + if: conditions to confirm order and gating exactly match the ticket spec.
