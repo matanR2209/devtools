@@ -96,7 +96,16 @@ The rules live in a comment at the top of the template and in `~/.claude/CLAUDE.
 
 ---
 
-## What each job does
+## What each check does
+
+TypeScript, ESLint, the Claude review, and the PR description generator all
+run as steps inside a single `review` job (display name **PR Review**) to
+cut GitHub Actions minutes — one checkout, one dependency install, one
+`.devtools` setup. Docs-only PRs (changes limited to `*.md`, `docs/**`,
+`design/**`, `.claude/**`, `LICENSE`, `*.txt`) skip TypeScript, ESLint, and
+the Claude review entirely; the PR description step always runs. Only the
+opt-in `tests` job remains separate. Update branch protection to require the
+**PR Review** status check (the old per-check names no longer exist).
 
 ### TypeScript (`typescript_blocking: true`)
 
@@ -189,7 +198,7 @@ with:
   working_directory: "packages/my-service"
 ```
 
-The TypeScript and ESLint jobs will `cd` into that directory before running. The Claude review and description generator always operate on the full PR diff regardless of `working_directory`.
+The TypeScript and ESLint steps will `cd` into that directory before running. The Claude review and description generator always operate on the full PR diff regardless of `working_directory`.
 
 ---
 
